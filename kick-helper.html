@@ -12,22 +12,31 @@
             const params = new URLSearchParams(window.location.search);
             const channelName = params.get('channel');
 
+            // Funkcja do wysyłania statusu do głównego widgetu
+            const postStatus = (status, details = '') => {
+                window.parent.postMessage({ service: 'kick_status', status, details }, '*');
+            };
+
             if (!channelName) {
                 document.body.innerText = 'Error: No channel name provided in URL.';
+                postStatus('error_no_channel');
                 return;
             }
 
             const connect = async () => {
+                postStatus('connecting', channelName);
                 try {
                     const kick = new Kick();
                     const channel = await kick.api.chatrooms.get(channelName);
                     if (!channel) {
                         document.body.innerText = `Error: Kick channel '${channelName}' not found.`;
+                        postStatus('error_not_found', channelName);
                         return;
                     }
 
                     await kick.chat.connect(channel.id);
                     document.body.innerText = `Successfully connected to Kick chat for ${channelName}.`;
+                    postStatus('connected', channelName);
 
                     kick.chat.on('message', (message) => {
                         let userType = 'viewer'; // Domyślnie
@@ -48,13 +57,13 @@
                             color: message.sender.identity.color || '#18db81'
                         };
                         
-                        // Wysyłamy dane do głównego widgetu
                         window.parent.postMessage(payload, '*');
                     });
 
                 } catch (error) {
                     console.error('Kick connection error:', error);
                     document.body.innerText = 'Error connecting to Kick chat. See console for details.';
+                    postStatus('error_generic', error.message);
                 }
             };
 
